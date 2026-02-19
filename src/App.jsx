@@ -67,7 +67,22 @@ const CSS = `
 
 export default function App() {
   // Navigation: "setup" | "drill" | "marshals" | "employees" | "sessions"
-  const [page, setPage]               = useState("setup");
+  const [page, setPage] = useState("setup");
+
+// Browser back button support
+useEffect(() => {
+  const handlePop = () => {
+    const state = window.history.state?.page || "setup";
+    setPage(state);
+  };
+  window.addEventListener("popstate", handlePop);
+  return () => window.removeEventListener("popstate", handlePop);
+}, []);
+
+const navigate = (newPage) => {
+  window.history.pushState({ page: newPage }, "", "");
+  setPage(newPage);
+};
 
   // Identity
   const [marshals, setMarshals]       = useState([]);
