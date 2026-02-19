@@ -4,8 +4,8 @@ import { supabase } from "./supabase.js";
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const DEPARTMENTS = [
-  "Finance", "Brands", "Management", "Retail", "Marketing",
-  "Credit", "Customer Care", "Technical", "ESG", "PSG", "Business",
+  "Brands", "Business", "Credit", "Customer Care", "ESG",
+  "Finance", "Management", "Marketing", "PSG", "Retail", "Technical",
 ];
 
 const STATUS_META = {
@@ -315,7 +315,10 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
     const q = search.trim().toLowerCase();
     const filtered = q ? base.filter(e => e.name.toLowerCase().includes(q) || e.dept?.toLowerCase().includes(q)) : base;
     const ord = { unaccounted: 0, missing: 1, present: 2, excused: 3 };
-    return filtered.sort((a, b) => ord[att[a.id]?.status || "unaccounted"] - ord[att[b.id]?.status || "unaccounted"]);
+    return filtered.sort((a, b) => {
+    const statusDiff = ord[att[a.id]?.status || "unaccounted"] - ord[att[b.id]?.status || "unaccounted"];
+    return statusDiff !== 0 ? statusDiff : a.name.localeCompare(b.name);
+});
   })();
 
   // ─── CSS ─────────────────────────────────────────────────────────────────
