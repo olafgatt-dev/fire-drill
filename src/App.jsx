@@ -526,8 +526,8 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
               </button>
               <button
                 onClick={() => {
-                  if (window.confirm(`Delete drill from ${fmtDate(s.started_at)} at ${fmtTime(s.started_at)}?\n\nThis will permanently remove all attendance records for this session.`))
-                    deleteSession(s.id);
+                  setSession(s);
+                  loadAttendance(s.id).then(() => { setTab("mine"); navigate("drill"); });
                 }}
                 style={{ width: 48, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171", borderRadius: 9, fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 🗑
