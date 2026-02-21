@@ -386,18 +386,17 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
   const otherActive  = activeSessions.filter(s => s.id !== session?.id);
 
   const visEmps = (() => {
-    const base = tab === "mine" ? myParty : [...employees];
-    const q = search.trim().toLowerCase();
-    const filtered = q ? base.filter(e => e.name.toLowerCase().includes(q) || e.dept?.toLowerCase().includes(q)) : base;
-    return filtered.sort((a, b) => {
+  const base = tab === "mine" ? myParty : [...employees];
+  const q = search.trim().toLowerCase();
+  const filtered = q ? base.filter(e => e.name.toLowerCase().includes(q) || e.dept?.toLowerCase().includes(q)) : base;
+  return filtered.sort((a, b) => {
     const priority = { unaccounted: 0, missing: 1, present: 2, excused: 2 };
     const aP = priority[att[a.id]?.status || "unaccounted"];
     const bP = priority[att[b.id]?.status || "unaccounted"];
     if (aP !== bP) return aP - bP;
     return a.name.localeCompare(b.name);
-});
-});
-  })();
+  });
+})();
 
   // ─── LOADING ──────────────────────────────────────────────────────────────
 
