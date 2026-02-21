@@ -753,7 +753,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
 
       {/* LEGEND */}
       <div style={{ padding: "5px 12px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10, fontSize: 11, color: "#94a3b8", overflowX: "auto" }}>
-        <span style={{ flexShrink: 0 }}>Tap icon to cycle →</span>
+        
         {Object.entries(STATUS_META).map(([k, v]) => (
           <span key={k} style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
             <span style={{ background: v.bg, color: v.text, width: 18, height: 18, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700 }}>{v.icon}</span>
