@@ -213,19 +213,21 @@ export default function App() {
 
   // ── Join a session from setup screen ─────────────────────────────────────
   const joinSession = async (sess) => {
-    setSession(sess);
-    await loadAttendance(sess.id);
-    setTab("mine"); navigate("drill");
-  };
+  setSession(sess);
+  await loadAttendance(sess.id);
+  setSearch("");
+  setTab("mine"); navigate("drill");
+};
 
   // ── Switch to a different active session from within drill view ───────────
   const switchSession = async (sess) => {
-    setSession(sess);
-    setAtt({});
-    await loadAttendance(sess.id);
-    setShowSwitcher(false);
-    setTab("mine");
-  };
+  setSession(sess);
+  setAtt({});
+  await loadAttendance(sess.id);
+  setSearch("");
+  setShowSwitcher(false);
+  setTab("mine");
+};
 
   // ── Stop drill — only ends current session, others unaffected ────────────
   const stopDrill = async () => {
