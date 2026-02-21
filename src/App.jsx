@@ -672,7 +672,11 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
             </button>
           )}
 
-          <button onClick={handlePrint} style={{ background: "rgba(255,255,255,0.13)", border: "1px solid rgba(255,255,255,0.18)", color: "white", borderRadius: 8, padding: "6px 10px", fontSize: 13 }}>📋</button>
+          <button onClick={() => {
+            if (!drillEnded && !window.confirm("The drill is still in progress. Print a partial report anyway?")) return;
+            handlePrint();
+          }} style={{ background: "rgba(255,255,255,0.13)", border: "1px solid rgba(255,255,255,0.18)", color: "white", borderRadius: 8, padding: "6px 10px", fontSize: 13 }}>📋
+          </button>
           <button onClick={() => { navigate("setup"); setSession(null); setAtt({}); setShowSwitcher(false); }} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "white", borderRadius: 8, padding: "5px 10px", fontSize: 11, fontWeight: 600, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
             <span style={{ fontSize: 14 }}>🏠</span>
             <span style={{ fontSize: 9, opacity: 0.7 }}>Home</span>
@@ -813,7 +817,11 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
         <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: drillEnded ? "#64748b" : hasMiss ? "#dc2626" : allOK ? "#16a34a" : "#64748b" }}>
           {drillEnded ? "Drill Complete" : hasMiss ? `⚠ ${allStats.missing} MISSING` : allOK ? "✅ All Clear" : `${allStats.present}/${allStats.total} present`}
         </div>
-        <button onClick={handlePrint} style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>📋 Report</button>
+        <button onClick={() => {
+          if (!drillEnded && !window.confirm("The drill is still in progress. Print a partial report anyway?")) return;
+          handlePrint();
+        }} style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>📋 Report
+        </button>
         {!drillEnded && (
           <button onClick={() => setConfirmStop(true)} style={{ background: "#dc2626", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>⏹ End Drill</button>
         )}
