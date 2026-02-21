@@ -870,10 +870,12 @@ function EmpRow({ emp, rec, onCycle, onStatus, onNote, disabled }) {
   const hasNote = !!rec?.note;
   return (
     <div className="emp-row fade-in" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7, background: "white", borderRadius: 12, padding: "10px 12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: status === "missing" ? "2px solid #fca5a5" : "2px solid transparent" }}>
-      <button onClick={() => !disabled && onCycle(emp.id)} className="status-btn"
-        style={{ width: 52, height: 52, borderRadius: 12, background: sm.bg, color: sm.text, border: "none", fontSize: 22, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 0 3px ${sm.ring}33`, opacity: disabled ? 0.7 : 1, cursor: disabled ? "default" : "pointer", transition: "transform .12s, filter .12s" }}>
+      
+      {/* Status indicator — no longer tappable to cycle */}
+      <div style={{ width: 44, height: 44, borderRadius: 10, background: sm.bg, color: sm.text, fontSize: 20, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 0 3px ${sm.ring}33` }}>
         {sm.icon}
-      </button>
+      </div>
+
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp.name}</div>
         <div style={{ fontSize: 12, color: "#64748b", marginTop: 1 }}>{emp.dept || "—"}</div>
@@ -888,14 +890,17 @@ function EmpRow({ emp, rec, onCycle, onStatus, onNote, disabled }) {
           </div>
         )}
       </div>
+
       <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-        {!disabled && (
-          <div style={{ display: "flex", gap: 4 }}>
-            <button onClick={() => onStatus(emp.id, "present")} style={{ width: 28, height: 28, borderRadius: 6, background: status === "present" ? "#16a34a" : "#f0fdf4", border: "1px solid #86efac", color: status === "present" ? "white" : "#16a34a", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>✓</button>
-            <button onClick={() => onStatus(emp.id, "missing")} style={{ width: 28, height: 28, borderRadius: 6, background: status === "missing" ? "#dc2626" : "#fef2f2", border: "1px solid #fca5a5", color: status === "missing" ? "white" : "#dc2626", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>✗</button>
-            <button onClick={() => onStatus(emp.id, "excused")} style={{ width: 28, height: 28, borderRadius: 6, background: status === "excused" ? "#d97706" : "#fffbeb", border: "1px solid #fcd34d", color: status === "excused" ? "white" : "#d97706", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>∅</button>
-          </div>
-        )}
+        {/* Always-visible status buttons */}
+        <div style={{ display: "flex", gap: 4 }}>
+          <button onClick={() => !disabled && onStatus(emp.id, "present")}
+            style={{ width: 36, height: 36, borderRadius: 8, background: status === "present" ? "#16a34a" : "#f0fdf4", border: `2px solid ${status === "present" ? "#16a34a" : "#86efac"}`, color: status === "present" ? "white" : "#16a34a", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>✓</button>
+          <button onClick={() => !disabled && onStatus(emp.id, "missing")}
+            style={{ width: 36, height: 36, borderRadius: 8, background: status === "missing" ? "#dc2626" : "#fef2f2", border: `2px solid ${status === "missing" ? "#dc2626" : "#fca5a5"}`, color: status === "missing" ? "white" : "#dc2626", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>✗</button>
+          <button onClick={() => !disabled && onStatus(emp.id, "excused")}
+            style={{ width: 36, height: 36, borderRadius: 8, background: status === "excused" ? "#d97706" : "#fffbeb", border: `2px solid ${status === "excused" ? "#d97706" : "#fcd34d"}`, color: status === "excused" ? "white" : "#d97706", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>∅</button>
+        </div>
         <button onClick={() => onNote(emp.id, rec?.note)} disabled={disabled}
           style={{ background: hasNote ? "#fef3c7" : "#f8fafc", border: `1px solid ${hasNote ? "#fcd34d" : "#e2e8f0"}`, borderRadius: 6, padding: "3px 8px", fontSize: 11, color: hasNote ? "#92400e" : "#94a3b8", fontWeight: 600, cursor: disabled ? "default" : "pointer" }}>
           📝 {hasNote ? "Edit" : "Note"}
