@@ -207,6 +207,7 @@ export default function App() {
     setActiveSessions(prev => [data, ...prev]);
     setSessions(prev => [data, ...prev]);
     setAtt({});
+    setSearch("");
     setTab("mine"); navigate("drill");
   };
 
