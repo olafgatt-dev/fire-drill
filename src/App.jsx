@@ -747,7 +747,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
 
       {/* SEARCH */}
       <div style={{ padding: "8px 10px", background: "white", borderBottom: "1px solid #f1f5f9" }}>
-        <input className="inp-light" value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍  Search by name or department…"
+        <input className="inp-light" value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setTab("all")} placeholder="🔍  Search by name or department…"
           style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15 }} />
       </div>
 
