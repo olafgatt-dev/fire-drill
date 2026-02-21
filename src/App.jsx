@@ -673,7 +673,10 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           )}
 
           <button onClick={handlePrint} style={{ background: "rgba(255,255,255,0.13)", border: "1px solid rgba(255,255,255,0.18)", color: "white", borderRadius: 8, padding: "6px 10px", fontSize: 13 }}>📋</button>
-          <button onClick={() => { navigate("setup"); setSession(null); setAtt({}); setShowSwitcher(false); }} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "rgba(255,255,255,0.5)", borderRadius: 8, padding: "6px 10px", fontSize: 12 }}>⚙</button>
+          <button onClick={() => { navigate("setup"); setSession(null); setAtt({}); setShowSwitcher(false); }} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "white", borderRadius: 8, padding: "5px 10px", fontSize: 11, fontWeight: 600, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+            <span style={{ fontSize: 14 }}>🏠</span>
+            <span style={{ fontSize: 9, opacity: 0.7 }}>Home</span>
+          </button>
         </div>
 
         {/* Session switcher dropdown */}
