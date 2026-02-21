@@ -390,10 +390,12 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
     const q = search.trim().toLowerCase();
     const filtered = q ? base.filter(e => e.name.toLowerCase().includes(q) || e.dept?.toLowerCase().includes(q)) : base;
     return filtered.sort((a, b) => {
-    const aUnac = (att[a.id]?.status || "unaccounted") === "unaccounted" ? 0 : 1;
-    const bUnac = (att[b.id]?.status || "unaccounted") === "unaccounted" ? 0 : 1;
-    if (aUnac !== bUnac) return aUnac - bUnac;
+    const priority = { unaccounted: 0, missing: 1, present: 2, excused: 2 };
+    const aP = priority[att[a.id]?.status || "unaccounted"];
+    const bP = priority[att[b.id]?.status || "unaccounted"];
+    if (aP !== bP) return aP - bP;
     return a.name.localeCompare(b.name);
+});
 });
   })();
 
