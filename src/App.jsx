@@ -89,11 +89,12 @@ function EmpRow({ emp, rec, onStatus, onNote, disabled, offline }) {
   const sm = STATUS_META[status];
   const hasNote = !!rec?.note;
 
-  // When offline: only allow missing → present or missing → excused
+  // When offline: allow present/excused freely (optimistic), block moving TO missing
+  // (marking someone missing offline could overwrite a "found" update from someone else)
   const canChange = (toStatus) => {
     if (disabled) return false;
     if (!offline) return true;
-    return status === "missing" && (toStatus === "present" || toStatus === "excused");
+    return toStatus !== "missing";
   };
 
   return (
@@ -244,41 +245,28 @@ export default function App() {
 
   // ── Connection status ─────────────────────────────────────────────────────
   useEffect(() => {
-    let offline = !navigator.onLine;
-    if (offline) setConnStatus("offline");
+    if (!navigator.onLine) setConnStatus("offline");
 
-    const ping = async () => {
+    const goOffline = () => setConnStatus("offline");
+    const goOnline  = async () => {
+      setConnStatus("syncing");
       try {
-        await supabase.from("drill_sessions").select("id").limit(1);
-        if (offline) {
-          offline = false;
-          setConnStatus("syncing");
-          if (session) {
-            const { data: sData } = await supabase.from("drill_sessions").select("*").eq("id", session.id).single();
-            if (sData) setSession(sData);
-            await loadAttendance(session.id);
-          }
-          const { data: aData } = await supabase.from("drill_sessions").select("*").eq("active", true);
-          if (aData) setActiveSessions(aData);
-          setConnStatus("online");
+        if (session) {
+          const { data: sData } = await supabase.from("drill_sessions").select("*").eq("id", session.id).single();
+          if (sData) setSession(sData);
+          await loadAttendance(session.id);
         }
-      } catch {
-        offline = true;
-        setConnStatus("offline");
-      }
+        const { data: aData } = await supabase.from("drill_sessions").select("*").eq("active", true);
+        if (aData) setActiveSessions(aData);
+      } catch (e) { console.error(e); }
+      setConnStatus("online");
     };
-
-    const goOffline = () => { offline = true; setConnStatus("offline"); };
-    const goOnline  = () => ping();
 
     window.addEventListener("offline", goOffline);
     window.addEventListener("online",  goOnline);
-    const interval = setInterval(ping, 15000); // check every 15s
-
     return () => {
       window.removeEventListener("offline", goOffline);
       window.removeEventListener("online",  goOnline);
-      clearInterval(interval);
     };
   }, [session?.id, loadAttendance]);
 
@@ -381,12 +369,18 @@ export default function App() {
       note: existing?.note || null,
       ...updates,
     };
+    // Optimistic update — apply immediately so UI responds even when offline
+    setAtt(prev => ({ ...prev, [employeeId]: { ...prev[employeeId], ...row } }));
+    if (!navigator.onLine) return; // skip DB write, will sync on reconnect
     const { data, error } = await supabase
       .from("attendance").upsert(row, { onConflict: "session_id,employee_id" }).select().single();
     if (!error && data) setAtt(prev => ({ ...prev, [employeeId]: data }));
   }, [session, myMarshal, att]);
 
-  const setStatus = (id, status) => upsertAtt(id, { status });
+  const setStatus = (id, newStatus) => {
+    const current = att[id]?.status || "unaccounted";
+    upsertAtt(id, { status: current === newStatus ? "unaccounted" : newStatus });
+  };
 
   const saveNote = async () => {
     if (!noteFor) return;
