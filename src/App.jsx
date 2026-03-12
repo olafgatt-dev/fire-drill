@@ -491,6 +491,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
 
   // ─── COMPUTED ─────────────────────────────────────────────────────────────
 
+  const blocked      = connStatus !== "online";
   const drillEmps    = employees.filter(e => !e.is_temp || e.created_in_session === session?.id);
   const myParty      = myMarshal ? drillEmps.filter(e => e.marshal_id === myMarshal.id) : [];
   const allStats     = calcStats(drillEmps, att);
@@ -747,8 +748,8 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
                   <div style={{ color: "#fbbf24", fontSize: 13, fontWeight: 700 }}>Started by {s.started_by}</div>
                   <div style={{ color: "#92400e", fontSize: 11, marginTop: 1, fontFamily: "'DM Mono', monospace" }}>{fmtTime(s.started_at)} · {elapsed(s.started_at)}</div>
                 </div>
-                <button onClick={() => joinSession(s)} disabled={!myMarshal}
-                  style={{ padding: "8px 14px", background: myMarshal ? "#d97706" : "#374151", color: "white", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, opacity: myMarshal ? 1 : 0.5, flexShrink: 0 }}>
+                <button onClick={() => joinSession(s)} disabled={!myMarshal || blocked}
+                  style={{ padding: "8px 14px", background: myMarshal && !blocked ? "#d97706" : "#374151", color: "white", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, opacity: myMarshal && !blocked ? 1 : 0.5, flexShrink: 0 }}>
                   Join
                 </button>
               </div>
@@ -756,8 +757,8 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           </div>
         )}
 
-        <button onClick={startDrill} disabled={!myMarshal}
-          style={{ width: "100%", padding: 14, background: myMarshal ? "#dc2626" : "#1e293b", color: "white", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 800, marginBottom: 12, transition: "all .15s", opacity: myMarshal ? 1 : 0.5, boxShadow: myMarshal ? "0 4px 20px rgba(220,38,38,0.35)" : "none" }}>
+        <button onClick={startDrill} disabled={!myMarshal || blocked}
+          style={{ width: "100%", padding: 14, background: myMarshal && !blocked ? "#dc2626" : "#1e293b", color: "white", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 800, marginBottom: 12, transition: "all .15s", opacity: myMarshal && !blocked ? 1 : 0.5, boxShadow: myMarshal && !blocked ? "0 4px 20px rgba(220,38,38,0.35)" : "none" }}>
           🚨 Start {activeSessions.length > 0 ? "Another" : "Fire"} Drill
         </button>
 
@@ -896,7 +897,10 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
       </div>
 
       {/* EMPLOYEE LIST */}
-      <div style={{ padding: "8px 10px 110px" }}>
+      <div style={{ padding: "8px 10px 110px", position: "relative" }}>
+        {blocked && (
+          <div style={{ position: "absolute", inset: 0, background: "rgba(241,245,249,0.6)", zIndex: 5, borderRadius: 4 }} />
+        )}
         {visEmps.length === 0 && (
           <div style={{ textAlign: "center", color: "#94a3b8", padding: "40px 20px", fontSize: 14 }}>
             {tab === "mine" && myParty.length === 0 ? "No employees assigned to your party yet." : "No employees found."}
@@ -904,27 +908,28 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
         )}
         {visEmps.map(emp => (
           <EmpRow key={emp.id} emp={emp} rec={att[emp.id]} onStatus={setStatus}
-            onNote={(id, note) => { setNoteFor(id); setNoteText(note || ""); }} disabled={drillEnded} />
+            onNote={(id, note) => { setNoteFor(id); setNoteText(note || ""); }} disabled={drillEnded || blocked} />
         ))}
       </div>
 
       {/* BOTTOM BAR */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e2e8f0", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, zIndex: 10 }}>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e2e8f0", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, zIndex: 10, opacity: blocked ? 0.5 : 1 }}>
         <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: drillEnded ? "#64748b" : hasMiss ? "#dc2626" : allOK ? "#16a34a" : "#64748b" }}>
           {drillEnded ? "Drill Complete" : hasMiss ? `⚠ ${allStats.missing} MISSING` : allOK ? "✅ All Clear" : `${allStats.present}/${allStats.total} present`}
         </div>
         {!drillEnded && (
-          <button onClick={() => { setShowAddPerson(true); setNewPersonName(""); }}
-            style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>
+          <button onClick={() => { if (!blocked) { setShowAddPerson(true); setNewPersonName(""); } }}
+            style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, cursor: blocked ? "default" : "pointer" }}>
             + Person
           </button>
         )}
         <button onClick={() => {
+          if (blocked) return;
           if (!drillEnded && !window.confirm("The drill is still in progress. Print a partial report anyway?")) return;
           handlePrint();
-        }} style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>📋 Report</button>
+        }} style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, cursor: blocked ? "default" : "pointer" }}>📋 Report</button>
         {!drillEnded && (
-          <button onClick={() => setConfirmStop(true)} style={{ background: "#dc2626", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>⏹ End Drill</button>
+          <button onClick={() => { if (!blocked) setConfirmStop(true); }} style={{ background: "#dc2626", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: blocked ? "default" : "pointer" }}>⏹ End Drill</button>
         )}
       </div>
 
