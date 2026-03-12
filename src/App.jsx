@@ -477,9 +477,6 @@ export default function App() {
       .sort((a, b) => a.name.localeCompare(b.name));
     const allStats = calcStats(printEmps, att);
     const now = new Date();
-
-    const col = (str, w) => (str || "").slice(0, w).padEnd(w);
-
     const lines = [
       "FIRE EVACUATION DRILL – HEADCOUNT REPORT",
       "==========================================",
@@ -498,29 +495,27 @@ export default function App() {
       `  ∅ Off-site     : ${allStats.excused}`,
       `  ? Unaccounted  : ${allStats.unaccounted}`,
       "",
-      "── FULL HEADCOUNT ───────────────────────────────────────────────────────────",
-      `  ${"NAME".padEnd(24)} ${"DEPT".padEnd(14)} ${"MR".padEnd(4)} ${"STATUS".padEnd(12)} TIME      NOTE`,
-      `  ${"─".repeat(24)} ${"─".repeat(14)} ${"─".repeat(4)} ${"─".repeat(12)} ${"─".repeat(8)}  ${"─".repeat(20)}`,
+      "── FULL HEADCOUNT ───────────────────────",
     ];
 
     printEmps.forEach(e => {
-      const r   = att[e.id];
-      const st  = r?.status || "unaccounted";
-      const marshal = employees.find(m => m.id === e.marshal_id);
-      const mi  = marshal ? initials(marshal.name) : "—";
-      const ts  = r?.updated_at && st !== "unaccounted" ? new Date(r.updated_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
-      const note = [r?.note, e.is_temp ? "[TEMP]" : ""].filter(Boolean).join(" ");
-      lines.push(`  ${col(e.name, 24)} ${col(e.dept, 14)} ${col(mi, 4)} ${col(STATUS_META[st].icon + " " + STATUS_META[st].label, 12)} ${ts.padEnd(8)}  ${note}`);
+      const r  = att[e.id];
+      const st = r?.status || "unaccounted";
+      const note = r?.note ? `  [${r.note}]` : "";
+      const by   = r?.marshal_name ? `  (${r.marshal_name})` : "";
+      const temp = e.is_temp ? "  [TEMP]" : "";
+      const ts   = r?.updated_at && st !== "unaccounted" ? `  @ ${fmtTime(r.updated_at)}` : "";
+      lines.push(`  ${STATUS_META[st].icon} ${e.name.padEnd(26)} ${(e.dept || "").padEnd(16)}${temp}${ts}${note}${by}`);
     });
 
     if (allStats.missing > 0) {
       lines.push("");
-      lines.push("⚠  MISSING PERSONS – ACTION REQUIRED ──────────────────────────────────────");
+      lines.push("⚠  MISSING PERSONS – ACTION REQUIRED ─────────");
       printEmps.filter(e => att[e.id]?.status === "missing").forEach(e => {
         const marshal = employees.find(m => m.id === e.marshal_id);
         const r = att[e.id];
-        const ts = r?.updated_at ? `Marked @ ${fmtTime(r.updated_at)}` : "";
-        lines.push(`  ✗ ${e.name}  |  ${e.dept || "—"}  |  Marshal: ${marshal?.name || "Unassigned"}  |  ${ts}${r?.note ? `  |  Note: ${r.note}` : ""}`);
+        const ts = r?.updated_at ? `  |  Marked @ ${fmtTime(r.updated_at)}` : "";
+        lines.push(`  ✗ ${e.name}  |  ${e.dept || "—"}  |  Marshal: ${marshal?.name || "Unassigned"}${ts}${r?.note ? `  |  Note: ${r.note}` : ""}`);
       });
     }
 
