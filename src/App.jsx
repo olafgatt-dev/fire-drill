@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
@@ -72,11 +72,11 @@ const CSS = `
 function ConnBar({ status }) {
   if (status === "online") return null;
   const cfg = status === "offline"
-    ? { bg: "#7f1d1d", border: "#991b1b", dot: "#f87171", label: "Offline — changes won't sync", pulse: false }
-    : { bg: "#1c3454", border: "#1d4ed8", dot: "#60a5fa", label: "Reconnected — syncing…", pulse: true };
+    ? { bg: "#450a0a", border: "#dc2626", dot: "#f87171", label: "⚠ No connection — reconnecting in background", pulse: false }
+    : { bg: "#1e3a5f", border: "#2563eb", dot: "#60a5fa", label: "↻ Back online — syncing latest data…", pulse: true };
   return (
-    <div style={{ background: cfg.bg, borderBottom: `1px solid ${cfg.border}`, padding: "6px 14px", display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "white", fontWeight: 600, position: "sticky", top: 0, zIndex: 50 }}>
-      <div className={cfg.pulse ? "pulse" : ""} style={{ width: 8, height: 8, borderRadius: "50%", background: cfg.dot, flexShrink: 0 }} />
+    <div style={{ background: cfg.bg, borderBottom: `2px solid ${cfg.border}`, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "white", fontWeight: 700, position: "sticky", top: 0, zIndex: 100, letterSpacing: "0.01em" }}>
+      <div className={cfg.pulse ? "pulse" : ""} style={{ width: 10, height: 10, borderRadius: "50%", background: cfg.dot, flexShrink: 0 }} />
       {cfg.label}
     </div>
   );
@@ -84,12 +84,20 @@ function ConnBar({ status }) {
 
 // ─── EMPLOYEE ROW ─────────────────────────────────────────────────────────────
 
-function EmpRow({ emp, rec, onStatus, onNote, disabled }) {
+function EmpRow({ emp, rec, onStatus, onNote, disabled, offline }) {
   const status = rec?.status || "unaccounted";
   const sm = STATUS_META[status];
   const hasNote = !!rec?.note;
+
+  // When offline: only allow missing → present or missing → excused
+  const canChange = (toStatus) => {
+    if (disabled) return false;
+    if (!offline) return true;
+    return status === "missing" && (toStatus === "present" || toStatus === "excused");
+  };
+
   return (
-    <div className="emp-row fade-in" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7, background: "white", borderRadius: 12, padding: "10px 12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: status === "missing" ? "2px solid #fca5a5" : "2px solid transparent" }}>
+    <div className="emp-row fade-in" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7, background: "white", borderRadius: 12, padding: "10px 12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: status === "missing" ? "2px solid #fca5a5" : "2px solid transparent", opacity: offline ? 0.75 : 1 }}>
       <div style={{ width: 44, height: 44, borderRadius: 10, background: sm.bg, color: sm.text, fontSize: 20, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 0 3px ${sm.ring}33` }}>
         {sm.icon}
       </div>
@@ -115,15 +123,21 @@ function EmpRow({ emp, rec, onStatus, onNote, disabled }) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
         <div style={{ display: "flex", gap: 4 }}>
-          <button onClick={() => !disabled && onStatus(emp.id, "present")}
-            style={{ width: 36, height: 36, borderRadius: 8, background: status === "present" ? "#16a34a" : "#f0fdf4", border: `2px solid ${status === "present" ? "#16a34a" : "#86efac"}`, color: status === "present" ? "white" : "#16a34a", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>✓</button>
-          <button onClick={() => !disabled && onStatus(emp.id, "missing")}
-            style={{ width: 36, height: 36, borderRadius: 8, background: status === "missing" ? "#dc2626" : "#fef2f2", border: `2px solid ${status === "missing" ? "#dc2626" : "#fca5a5"}`, color: status === "missing" ? "white" : "#dc2626", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>✗</button>
-          <button onClick={() => !disabled && onStatus(emp.id, "excused")}
-            style={{ width: 36, height: 36, borderRadius: 8, background: status === "excused" ? "#d97706" : "#fffbeb", border: `2px solid ${status === "excused" ? "#d97706" : "#fcd34d"}`, color: status === "excused" ? "white" : "#d97706", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>∅</button>
+          {["present", "missing", "excused"].map(s => {
+            const ok = canChange(s);
+            const active = status === s;
+            const colors = { present: { on: "#16a34a", off: "#f0fdf4", border: "#86efac", text: "#16a34a" }, missing: { on: "#dc2626", off: "#fef2f2", border: "#fca5a5", text: "#dc2626" }, excused: { on: "#d97706", off: "#fffbeb", border: "#fcd34d", text: "#d97706" } }[s];
+            const icons = { present: "✓", missing: "✗", excused: "∅" };
+            return (
+              <button key={s} onClick={() => ok && onStatus(emp.id, s)}
+                style={{ width: 36, height: 36, borderRadius: 8, background: active ? colors.on : colors.off, border: `2px solid ${active ? colors.on : colors.border}`, color: active ? "white" : colors.text, fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: ok ? "pointer" : "default", opacity: ok || active ? 1 : 0.3, transition: "opacity .15s" }}>
+                {icons[s]}
+              </button>
+            );
+          })}
         </div>
-        <button onClick={() => onNote(emp.id, rec?.note)} disabled={disabled}
-          style={{ background: hasNote ? "#fef3c7" : "#f8fafc", border: `1px solid ${hasNote ? "#fcd34d" : "#e2e8f0"}`, borderRadius: 6, padding: "3px 8px", fontSize: 11, color: hasNote ? "#92400e" : "#94a3b8", fontWeight: 600, cursor: disabled ? "default" : "pointer" }}>
+        <button onClick={() => !disabled && !offline && onNote(emp.id, rec?.note)}
+          style={{ background: hasNote ? "#fef3c7" : "#f8fafc", border: `1px solid ${hasNote ? "#fcd34d" : "#e2e8f0"}`, borderRadius: 6, padding: "3px 8px", fontSize: 11, color: hasNote ? "#92400e" : "#94a3b8", fontWeight: 600, cursor: (disabled || offline) ? "default" : "pointer", opacity: offline ? 0.4 : 1 }}>
           📝 {hasNote ? "Edit" : "Note"}
         </button>
       </div>
@@ -180,9 +194,8 @@ export default function App() {
   const [showSwitcher, setShowSwitcher]   = useState(false);
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [newPersonName, setNewPersonName] = useState("");
-  const [connStatus, setConnStatus]       = useState("online");
+  const [connStatus, setConnStatus]       = useState("online"); // "online" | "offline" | "syncing"
   const [, setTick]                       = useState(0);
-  const firstConnect                      = useRef(true);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const marshals = employees.filter(e => e.is_marshal && !e.is_temp);
@@ -229,18 +242,17 @@ export default function App() {
     }
   }, []);
 
-  // ── Connection status (via Supabase socket — works on mobile) ────────────
+  // ── Connection status ─────────────────────────────────────────────────────
   useEffect(() => {
-    let wasOffline = false;
+    let offline = !navigator.onLine;
+    if (offline) setConnStatus("offline");
 
-    const handleStatusChange = async (status) => {
-      if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        wasOffline = true;
-        setConnStatus("offline");
-      } else if (status === "SUBSCRIBED" && wasOffline) {
-        wasOffline = false;
-        setConnStatus("syncing");
-        try {
+    const ping = async () => {
+      try {
+        await supabase.from("drill_sessions").select("id").limit(1);
+        if (offline) {
+          offline = false;
+          setConnStatus("syncing");
           if (session) {
             const { data: sData } = await supabase.from("drill_sessions").select("*").eq("id", session.id).single();
             if (sData) setSession(sData);
@@ -248,24 +260,27 @@ export default function App() {
           }
           const { data: aData } = await supabase.from("drill_sessions").select("*").eq("active", true);
           if (aData) setActiveSessions(aData);
-        } catch (e) { console.error(e); }
-        setConnStatus("online");
+          setConnStatus("online");
+        }
+      } catch {
+        offline = true;
+        setConnStatus("offline");
       }
     };
 
-    // Monitor the realtime socket directly
-    const ch = supabase.channel("conn-monitor")
-      .subscribe((status) => handleStatusChange(status));
+    const goOffline = () => { offline = true; setConnStatus("offline"); };
+    const goOnline  = () => ping();
 
-    // Keep window events as a fallback for desktop
-    const goOffline = () => { wasOffline = true; setConnStatus("offline"); };
     window.addEventListener("offline", goOffline);
+    window.addEventListener("online",  goOnline);
+    const interval = setInterval(ping, 15000); // check every 15s
 
     return () => {
-      supabase.removeChannel(ch);
       window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online",  goOnline);
+      clearInterval(interval);
     };
-  }, [session, loadAttendance]);
+  }, [session?.id, loadAttendance]);
 
   // ── Real-time: attendance ─────────────────────────────────────────────────
   useEffect(() => {
@@ -277,20 +292,7 @@ export default function App() {
           setSyncPulse(true); setTimeout(() => setSyncPulse(false), 600);
           setAtt(prev => ({ ...prev, [payload.new.employee_id]: payload.new }));
         })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          if (firstConnect.current) { firstConnect.current = false; return; }
-          // Reconnected after a drop — re-sync missed changes
-          setConnStatus("syncing");
-          const { data: sData } = await supabase.from("drill_sessions").select("*").eq("id", session.id).single();
-          if (sData) setSession(sData);
-          await loadAttendance(session.id);
-          setConnStatus("online");
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          firstConnect.current = false; // so next SUBSCRIBED is treated as a reconnect
-          setConnStatus("offline");
-        }
-      });
+      .subscribe();
     const sessCh = supabase.channel("sess-live")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "drill_sessions", filter: `id=eq.${session.id}` },
         payload => {
@@ -472,7 +474,8 @@ export default function App() {
         const note = r?.note ? `  [${r.note}]` : "";
         const by   = r?.marshal_name ? `  (${r.marshal_name})` : "";
         const temp = e.is_temp ? "  [TEMP]" : "";
-        lines.push(`  ${STATUS_META[st].icon} ${e.name.padEnd(22)} ${(e.dept || "").padEnd(16)}${temp}${note}${by}`);
+        const ts   = r?.updated_at && st !== "unaccounted" ? `  @ ${fmtTime(r.updated_at)}` : "";
+        lines.push(`  ${STATUS_META[st].icon} ${e.name.padEnd(22)} ${(e.dept || "").padEnd(16)}${temp}${ts}${note}${by}`);
       });
       lines.push("");
     });
@@ -481,7 +484,8 @@ export default function App() {
       lines.push(`── UNASSIGNED ────────────────────────────────`);
       unassigned.forEach(e => {
         const r = att[e.id]; const st = r?.status || "unaccounted";
-        lines.push(`  ${STATUS_META[st].icon} ${e.name.padEnd(22)} ${e.dept || ""}${e.is_temp ? "  [TEMP]" : ""}`);
+        const ts = r?.updated_at && st !== "unaccounted" ? `  @ ${fmtTime(r.updated_at)}` : "";
+        lines.push(`  ${STATUS_META[st].icon} ${e.name.padEnd(22)} ${e.dept || ""}${e.is_temp ? "  [TEMP]" : ""}${ts}`);
       });
       lines.push("");
     }
@@ -489,8 +493,10 @@ export default function App() {
       lines.push("⚠  MISSING PERSONS – ACTION REQUIRED ─────────");
       printEmps.filter(e => att[e.id]?.status === "missing").forEach(e => {
         const marshal = employees.find(m => m.id === e.marshal_id);
-        const n = att[e.id]?.note;
-        lines.push(`  ✗ ${e.name}  |  ${e.dept || "—"}  |  Marshal: ${marshal?.name || "Unassigned"}${n ? `  |  Note: ${n}` : ""}`);
+        const r = att[e.id];
+        const n = r?.note;
+        const ts = r?.updated_at ? `  |  Marked @ ${fmtTime(r.updated_at)}` : "";
+        lines.push(`  ✗ ${e.name}  |  ${e.dept || "—"}  |  Marshal: ${marshal?.name || "Unassigned"}${ts}${n ? `  |  Note: ${n}` : ""}`);
       });
     }
     const html = `<html><head><title>Fire Drill Report</title>
@@ -505,7 +511,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
 
   // ─── COMPUTED ─────────────────────────────────────────────────────────────
 
-  const blocked      = connStatus !== "online";
+  const offline      = connStatus === "offline";
   const drillEmps    = employees.filter(e => !e.is_temp || e.created_in_session === session?.id);
   const myParty      = myMarshal ? drillEmps.filter(e => e.marshal_id === myMarshal.id) : [];
   const allStats     = calcStats(drillEmps, att);
@@ -714,7 +720,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#0f172a 0%,#1e293b 100%)", fontFamily: "'DM Sans', system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <style>{CSS}</style>
       <ConnBar status={connStatus} />
-      <div style={{ width: "100%", maxWidth: 480, padding: "28px 16px 40px", filter: blocked ? "grayscale(1) opacity(0.4)" : "none", pointerEvents: blocked ? "none" : "auto", transition: "filter .3s" }}>
+      <div style={{ width: "100%", maxWidth: 480, padding: "28px 16px 40px", opacity: offline ? 0.6 : 1, transition: "opacity .3s" }}>
 
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 48, marginBottom: 6 }}>🚨</div>
@@ -762,8 +768,8 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
                   <div style={{ color: "#fbbf24", fontSize: 13, fontWeight: 700 }}>Started by {s.started_by}</div>
                   <div style={{ color: "#92400e", fontSize: 11, marginTop: 1, fontFamily: "'DM Mono', monospace" }}>{fmtTime(s.started_at)} · {elapsed(s.started_at)}</div>
                 </div>
-                <button onClick={() => joinSession(s)} disabled={!myMarshal || blocked}
-                  style={{ padding: "8px 14px", background: myMarshal && !blocked ? "#d97706" : "#374151", color: "white", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, opacity: myMarshal && !blocked ? 1 : 0.5, flexShrink: 0 }}>
+                <button onClick={() => !offline && joinSession(s)} disabled={!myMarshal}
+                  style={{ padding: "8px 14px", background: myMarshal ? "#d97706" : "#374151", color: "white", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, opacity: myMarshal ? 1 : 0.5, flexShrink: 0 }}>
                   Join
                 </button>
               </div>
@@ -771,8 +777,8 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           </div>
         )}
 
-        <button onClick={startDrill} disabled={!myMarshal || blocked}
-          style={{ width: "100%", padding: 14, background: myMarshal && !blocked ? "#dc2626" : "#1e293b", color: "white", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 800, marginBottom: 12, transition: "all .15s", opacity: myMarshal && !blocked ? 1 : 0.5, boxShadow: myMarshal && !blocked ? "0 4px 20px rgba(220,38,38,0.35)" : "none" }}>
+        <button onClick={() => !offline && startDrill()} disabled={!myMarshal}
+          style={{ width: "100%", padding: 14, background: myMarshal ? "#dc2626" : "#1e293b", color: "white", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 800, marginBottom: 12, transition: "all .15s", opacity: myMarshal ? 1 : 0.5, boxShadow: myMarshal ? "0 4px 20px rgba(220,38,38,0.35)" : "none" }}>
           🚨 Start {activeSessions.length > 0 ? "Another" : "Fire"} Drill
         </button>
 
@@ -792,23 +798,6 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           </button>
         </div>
       </div>
-      {blocked && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.82)", zIndex: 50, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-          {connStatus === "offline" ? (
-            <>
-              <div style={{ fontSize: 80 }}>🚫</div>
-              <div style={{ color: "white", fontWeight: 800, fontSize: 22 }}>No Connection</div>
-              <div style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", maxWidth: 260 }}>Changes won't sync until you're back online.</div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 80 }}>🔄</div>
-              <div style={{ color: "white", fontWeight: 800, fontSize: 22 }}>Reconnecting…</div>
-              <div style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", maxWidth: 260 }}>Syncing latest data, please wait.</div>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 
@@ -936,50 +925,29 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
         )}
         {visEmps.map(emp => (
           <EmpRow key={emp.id} emp={emp} rec={att[emp.id]} onStatus={setStatus}
-            onNote={(id, note) => { setNoteFor(id); setNoteText(note || ""); }} disabled={drillEnded || blocked} />
+            onNote={(id, note) => { setNoteFor(id); setNoteText(note || ""); }} disabled={drillEnded} offline={offline} />
         ))}
       </div>
 
       {/* BOTTOM BAR */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e2e8f0", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, zIndex: 10, filter: blocked ? "grayscale(1) opacity(0.4)" : "none", pointerEvents: blocked ? "none" : "auto", transition: "filter .3s" }}>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e2e8f0", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, zIndex: 10, opacity: offline ? 0.7 : 1, transition: "opacity .3s" }}>
         <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: drillEnded ? "#64748b" : hasMiss ? "#dc2626" : allOK ? "#16a34a" : "#64748b" }}>
           {drillEnded ? "Drill Complete" : hasMiss ? `⚠ ${allStats.missing} MISSING` : allOK ? "✅ All Clear" : `${allStats.present}/${allStats.total} present`}
         </div>
         {!drillEnded && (
-          <button onClick={() => { if (!blocked) { setShowAddPerson(true); setNewPersonName(""); } }}
-            style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, cursor: blocked ? "default" : "pointer" }}>
+          <button onClick={() => { if (!offline) { setShowAddPerson(true); setNewPersonName(""); } }}
+            style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, opacity: offline ? 0.4 : 1, cursor: offline ? "default" : "pointer" }}>
             + Person
           </button>
         )}
         <button onClick={() => {
-          if (blocked) return;
           if (!drillEnded && !window.confirm("The drill is still in progress. Print a partial report anyway?")) return;
           handlePrint();
-        }} style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, cursor: blocked ? "default" : "pointer" }}>📋 Report</button>
+        }} style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>📋 Report</button>
         {!drillEnded && (
-          <button onClick={() => { if (!blocked) setConfirmStop(true); }} style={{ background: "#dc2626", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: blocked ? "default" : "pointer" }}>⏹ End Drill</button>
+          <button onClick={() => { if (!offline) setConfirmStop(true); }} style={{ background: "#dc2626", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, opacity: offline ? 0.4 : 1, cursor: offline ? "default" : "pointer" }}>⏹ End Drill</button>
         )}
       </div>
-
-      {/* OFFLINE OVERLAY */}
-      {blocked && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.82)", zIndex: 50, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-          {connStatus === "offline" ? (
-            <>
-              <div style={{ fontSize: 80 }}>🚫</div>
-              <div style={{ color: "white", fontWeight: 800, fontSize: 22 }}>No Connection</div>
-              <div style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", maxWidth: 260 }}>Changes won't sync until you're back online.</div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 80 }}>🔄</div>
-              <div style={{ color: "white", fontWeight: 800, fontSize: 22 }}>Reconnecting…</div>
-              <div style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", maxWidth: 260 }}>Syncing latest data, please wait.</div>
-            </>
-          )}
-          <div style={{ position: "absolute", bottom: 24, fontSize: 12, color: "#475569" }}>Home button still available ↑</div>
-        </div>
-      )}
 
       {/* STOP DRILL CONFIRM */}
       {confirmStop && (
