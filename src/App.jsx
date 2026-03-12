@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "./supabase.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
@@ -197,6 +197,7 @@ export default function App() {
   const [newPersonName, setNewPersonName] = useState("");
   const [connStatus, setConnStatus]       = useState("online"); // "online" | "offline" | "syncing"
   const [, setTick]                       = useState(0);
+  const pendingAtt                        = useRef({}); // offline queue: { employeeId: row }
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const marshals = employees.filter(e => e.is_marshal && !e.is_temp);
@@ -252,9 +253,36 @@ export default function App() {
       setConnStatus("syncing");
       try {
         if (session) {
+          // Fetch current server state first
+          const { data: serverAtt } = await supabase.from("attendance").select("*").eq("session_id", session.id);
+          const serverMap = {};
+          (serverAtt || []).forEach(r => { serverMap[r.employee_id] = r; });
+
+          // Flush pending offline changes — server "present" always wins
+          const pending = Object.values(pendingAtt.current);
+          if (pending.length > 0) {
+            const toWrite = pending.filter(row => {
+              const serverRow = serverMap[row.employee_id];
+              // If another marshal has marked them present live, don't overwrite
+              if (serverRow?.status === "present") return false;
+              return true;
+            });
+            if (toWrite.length > 0) {
+              await supabase.from("attendance").upsert(toWrite, { onConflict: "session_id,employee_id" });
+            }
+            pendingAtt.current = {};
+          }
+
+          // Re-fetch fresh merged state
+          const { data: freshAtt } = await supabase.from("attendance").select("*").eq("session_id", session.id);
+          if (freshAtt) {
+            const map = {};
+            freshAtt.forEach(r => { map[r.employee_id] = r; });
+            setAtt(map);
+          }
+
           const { data: sData } = await supabase.from("drill_sessions").select("*").eq("id", session.id).single();
           if (sData) setSession(sData);
-          await loadAttendance(session.id);
         }
         const { data: aData } = await supabase.from("drill_sessions").select("*").eq("active", true);
         if (aData) setActiveSessions(aData);
@@ -278,7 +306,12 @@ export default function App() {
         payload => {
           if (payload.eventType === "DELETE") return;
           setSyncPulse(true); setTimeout(() => setSyncPulse(false), 600);
-          setAtt(prev => ({ ...prev, [payload.new.employee_id]: payload.new }));
+          const incoming = payload.new;
+          // If another marshal marked someone present live, discard our offline pending change
+          if (incoming.status === "present") {
+            delete pendingAtt.current[incoming.employee_id];
+          }
+          setAtt(prev => ({ ...prev, [incoming.employee_id]: incoming }));
         })
       .subscribe();
     const sessCh = supabase.channel("sess-live")
@@ -371,7 +404,11 @@ export default function App() {
     };
     // Optimistic update — apply immediately so UI responds even when offline
     setAtt(prev => ({ ...prev, [employeeId]: { ...prev[employeeId], ...row } }));
-    if (!navigator.onLine) return; // skip DB write, will sync on reconnect
+    if (!navigator.onLine) {
+      // Queue for sync on reconnect
+      pendingAtt.current[employeeId] = row;
+      return;
+    }
     const { data, error } = await supabase
       .from("attendance").upsert(row, { onConflict: "session_id,employee_id" }).select().single();
     if (!error && data) setAtt(prev => ({ ...prev, [employeeId]: data }));
@@ -508,6 +545,11 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
   const offline      = connStatus === "offline";
   const drillEmps    = employees.filter(e => !e.is_temp || e.created_in_session === session?.id);
   const myParty      = myMarshal ? drillEmps.filter(e => e.marshal_id === myMarshal.id) : [];
+
+  // Auto-switch to All if My Party is empty
+  useEffect(() => {
+    if (page === "drill" && tab === "mine" && myParty.length === 0) setTab("all");
+  }, [page, myParty.length]);
   const allStats     = calcStats(drillEmps, att);
   const myStats      = calcStats(myParty, att);
   const allOK        = allStats.total > 0 && allStats.unaccounted === 0 && allStats.missing === 0;
