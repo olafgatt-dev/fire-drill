@@ -228,27 +228,41 @@ export default function App() {
     }
   }, []);
 
-  // ── Connection status ─────────────────────────────────────────────────────
+  // ── Connection status (via Supabase socket — works on mobile) ────────────
   useEffect(() => {
-    const goOffline = () => setConnStatus("offline");
-    const goOnline = async () => {
-      setConnStatus("syncing");
-      try {
-        if (session) {
-          const { data: sData } = await supabase.from("drill_sessions").select("*").eq("id", session.id).single();
-          if (sData) setSession(sData);
-          await loadAttendance(session.id);
-        }
-        const { data: aData } = await supabase.from("drill_sessions").select("*").eq("active", true);
-        if (aData) setActiveSessions(aData);
-      } catch (e) { console.error(e); }
-      setConnStatus("online");
+    let wasOffline = false;
+
+    const handleStatusChange = async (status) => {
+      if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        wasOffline = true;
+        setConnStatus("offline");
+      } else if (status === "SUBSCRIBED" && wasOffline) {
+        wasOffline = false;
+        setConnStatus("syncing");
+        try {
+          if (session) {
+            const { data: sData } = await supabase.from("drill_sessions").select("*").eq("id", session.id).single();
+            if (sData) setSession(sData);
+            await loadAttendance(session.id);
+          }
+          const { data: aData } = await supabase.from("drill_sessions").select("*").eq("active", true);
+          if (aData) setActiveSessions(aData);
+        } catch (e) { console.error(e); }
+        setConnStatus("online");
+      }
     };
+
+    // Monitor the realtime socket directly
+    const ch = supabase.channel("conn-monitor")
+      .subscribe((status) => handleStatusChange(status));
+
+    // Keep window events as a fallback for desktop
+    const goOffline = () => { wasOffline = true; setConnStatus("offline"); };
     window.addEventListener("offline", goOffline);
-    window.addEventListener("online", goOnline);
+
     return () => {
+      supabase.removeChannel(ch);
       window.removeEventListener("offline", goOffline);
-      window.removeEventListener("online", goOnline);
     };
   }, [session, loadAttendance]);
 
