@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "./supabase.js";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
@@ -182,6 +182,7 @@ export default function App() {
   const [newPersonName, setNewPersonName] = useState("");
   const [connStatus, setConnStatus]       = useState("online");
   const [, setTick]                       = useState(0);
+  const firstConnect                      = useRef(true);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const marshals = employees.filter(e => e.is_marshal && !e.is_temp);
@@ -276,7 +277,20 @@ export default function App() {
           setSyncPulse(true); setTimeout(() => setSyncPulse(false), 600);
           setAtt(prev => ({ ...prev, [payload.new.employee_id]: payload.new }));
         })
-      .subscribe();
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          if (firstConnect.current) { firstConnect.current = false; return; }
+          // Reconnected after a drop — re-sync missed changes
+          setConnStatus("syncing");
+          const { data: sData } = await supabase.from("drill_sessions").select("*").eq("id", session.id).single();
+          if (sData) setSession(sData);
+          await loadAttendance(session.id);
+          setConnStatus("online");
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          firstConnect.current = false; // so next SUBSCRIBED is treated as a reconnect
+          setConnStatus("offline");
+        }
+      });
     const sessCh = supabase.channel("sess-live")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "drill_sessions", filter: `id=eq.${session.id}` },
         payload => {
@@ -288,7 +302,7 @@ export default function App() {
         })
       .subscribe();
     return () => { supabase.removeChannel(attCh); supabase.removeChannel(sessCh); };
-  }, [session]);
+  }, [session?.id]);
 
   // ── Real-time: new sessions ───────────────────────────────────────────────
   useEffect(() => {
