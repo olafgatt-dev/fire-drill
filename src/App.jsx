@@ -15,8 +15,6 @@ const STATUS_META = {
   excused:     { icon: "∅", label: "Off-site",    bg: "#d97706", ring: "#fbbf24", text: "#fffbeb" },
 };
 
-const CYCLE = { unaccounted: "present", present: "missing", missing: "excused", excused: "unaccounted" };
-
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 function calcStats(empList, att) {
@@ -43,7 +41,7 @@ function elapsed(startIso, endIso) {
 }
 
 function initials(name) {
-  return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  return (name || "").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────
@@ -63,9 +61,75 @@ const CSS = `
   .fade-in { animation: fadeIn .2s ease; }
   @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
   .slide-up { animation: slideUp .2s ease; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .pulse { animation: pulse 1.2s ease infinite; }
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
 `;
+
+// ─── CONNECTION BAR ───────────────────────────────────────────────────────────
+
+function ConnBar({ status }) {
+  if (status === "online") return null;
+  const cfg = status === "offline"
+    ? { bg: "#7f1d1d", border: "#991b1b", dot: "#f87171", label: "Offline — changes won't sync", pulse: false }
+    : { bg: "#1c3454", border: "#1d4ed8", dot: "#60a5fa", label: "Reconnected — syncing…", pulse: true };
+  return (
+    <div style={{ background: cfg.bg, borderBottom: `1px solid ${cfg.border}`, padding: "6px 14px", display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "white", fontWeight: 600, position: "sticky", top: 0, zIndex: 50 }}>
+      <div className={cfg.pulse ? "pulse" : ""} style={{ width: 8, height: 8, borderRadius: "50%", background: cfg.dot, flexShrink: 0 }} />
+      {cfg.label}
+    </div>
+  );
+}
+
+// ─── EMPLOYEE ROW ─────────────────────────────────────────────────────────────
+
+function EmpRow({ emp, rec, onStatus, onNote, disabled }) {
+  const status = rec?.status || "unaccounted";
+  const sm = STATUS_META[status];
+  const hasNote = !!rec?.note;
+  return (
+    <div className="emp-row fade-in" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7, background: "white", borderRadius: 12, padding: "10px 12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: status === "missing" ? "2px solid #fca5a5" : "2px solid transparent" }}>
+      <div style={{ width: 44, height: 44, borderRadius: 10, background: sm.bg, color: sm.text, fontSize: 20, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 0 3px ${sm.ring}33` }}>
+        {sm.icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ fontWeight: 700, fontSize: 15, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp.name}</span>
+          {emp.is_marshal && <span style={{ background: "#fff7ed", color: "#c2410c", borderRadius: 4, padding: "1px 5px", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>🧑‍🚒</span>}
+        </div>
+        <div style={{ fontSize: 12, color: "#64748b", marginTop: 1, display: "flex", alignItems: "center", gap: 5 }}>
+          {emp.dept || "—"}
+          {emp.is_temp && <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 4, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>TEMP</span>}
+        </div>
+        {hasNote && (
+          <div style={{ fontSize: 11, color: "#78350f", background: "#fef3c7", borderRadius: 5, padding: "2px 7px", marginTop: 3, display: "inline-flex", gap: 3 }}>
+            <span>📝</span><span>{rec.note}</span>
+          </div>
+        )}
+        {rec?.marshal_name && (
+          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, fontFamily: "'DM Mono', monospace" }}>
+            {rec.marshal_name} · {rec.updated_at ? new Date(rec.updated_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : ""}
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button onClick={() => !disabled && onStatus(emp.id, "present")}
+            style={{ width: 36, height: 36, borderRadius: 8, background: status === "present" ? "#16a34a" : "#f0fdf4", border: `2px solid ${status === "present" ? "#16a34a" : "#86efac"}`, color: status === "present" ? "white" : "#16a34a", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>✓</button>
+          <button onClick={() => !disabled && onStatus(emp.id, "missing")}
+            style={{ width: 36, height: 36, borderRadius: 8, background: status === "missing" ? "#dc2626" : "#fef2f2", border: `2px solid ${status === "missing" ? "#dc2626" : "#fca5a5"}`, color: status === "missing" ? "white" : "#dc2626", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>✗</button>
+          <button onClick={() => !disabled && onStatus(emp.id, "excused")}
+            style={{ width: 36, height: 36, borderRadius: 8, background: status === "excused" ? "#d97706" : "#fffbeb", border: `2px solid ${status === "excused" ? "#d97706" : "#fcd34d"}`, color: status === "excused" ? "white" : "#d97706", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>∅</button>
+        </div>
+        <button onClick={() => onNote(emp.id, rec?.note)} disabled={disabled}
+          style={{ background: hasNote ? "#fef3c7" : "#f8fafc", border: `1px solid ${hasNote ? "#fcd34d" : "#e2e8f0"}`, borderRadius: 6, padding: "3px 8px", fontSize: 11, color: hasNote ? "#92400e" : "#94a3b8", fontWeight: 600, cursor: disabled ? "default" : "pointer" }}>
+          📝 {hasNote ? "Edit" : "Note"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ─── APP ─────────────────────────────────────────────────────────────────────
 
@@ -89,11 +153,11 @@ export default function App() {
   // ── Identity ──────────────────────────────────────────────────────────────
   const [myMarshal, setMyMarshal] = useState(null);
 
-  // ── Employees (single source of truth) ───────────────────────────────────
-  const [employees, setEmployees]   = useState([]);
-  const [newEmp, setNewEmp]         = useState({ name: "", dept: "", marshal_id: "", is_marshal: false });
-  const [empSearch, setEmpSearch]   = useState("");
-  const [editEmp, setEditEmp]       = useState(null); // employee open in edit sheet
+  // ── Employees ─────────────────────────────────────────────────────────────
+  const [employees, setEmployees] = useState([]);
+  const [newEmp, setNewEmp]       = useState({ name: "", dept: "", marshal_id: "", is_marshal: false });
+  const [empSearch, setEmpSearch] = useState("");
+  const [editEmp, setEditEmp]     = useState(null);
 
   // ── Sessions ──────────────────────────────────────────────────────────────
   const [sessions, setSessions]             = useState([]);
@@ -116,10 +180,10 @@ export default function App() {
   const [showSwitcher, setShowSwitcher]   = useState(false);
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [newPersonName, setNewPersonName] = useState("");
-  const [tick, setTick]                   = useState(0);
+  const [connStatus, setConnStatus]       = useState("online");
+  const [, setTick]                       = useState(0);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  // Marshals are simply employees with is_marshal = true (excluding temp)
   const marshals = employees.filter(e => e.is_marshal && !e.is_temp);
 
   // ── Initial load ──────────────────────────────────────────────────────────
@@ -131,7 +195,6 @@ export default function App() {
         if (eErr) { console.error(eErr.message); setLoading(false); return; }
         setDbReady(true);
         setEmployees(eData || []);
-
         const { data: sData } = await supabase
           .from("drill_sessions").select("*").order("started_at", { ascending: false }).limit(50);
         setSessions(sData || []);
@@ -141,12 +204,53 @@ export default function App() {
     })();
   }, []);
 
-  // ── Elapsed timer ─────────────────────────────────────────────────────────
+  // ── Elapsed timer (drill page) ────────────────────────────────────────────
   useEffect(() => {
     if (!session?.active) return;
     const t = setInterval(() => setElapsedStr(elapsed(session.started_at)), 1000);
     return () => clearInterval(t);
   }, [session]);
+
+  // ── Tick (setup page live timers) ─────────────────────────────────────────
+  useEffect(() => {
+    if (activeSessions.length === 0) return;
+    const t = setInterval(() => setTick(n => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [activeSessions.length]);
+
+  // ── Load attendance ───────────────────────────────────────────────────────
+  const loadAttendance = useCallback(async (sessionId) => {
+    const { data } = await supabase.from("attendance").select("*").eq("session_id", sessionId);
+    if (data) {
+      const map = {};
+      data.forEach(r => { map[r.employee_id] = r; });
+      setAtt(map);
+    }
+  }, []);
+
+  // ── Connection status ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const goOffline = () => setConnStatus("offline");
+    const goOnline = async () => {
+      setConnStatus("syncing");
+      try {
+        if (session) {
+          const { data: sData } = await supabase.from("drill_sessions").select("*").eq("id", session.id).single();
+          if (sData) setSession(sData);
+          await loadAttendance(session.id);
+        }
+        const { data: aData } = await supabase.from("drill_sessions").select("*").eq("active", true);
+        if (aData) setActiveSessions(aData);
+      } catch (e) { console.error(e); }
+      setConnStatus("online");
+    };
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", goOnline);
+    return () => {
+      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online", goOnline);
+    };
+  }, [session, loadAttendance]);
 
   // ── Real-time: attendance ─────────────────────────────────────────────────
   useEffect(() => {
@@ -159,7 +263,6 @@ export default function App() {
           setAtt(prev => ({ ...prev, [payload.new.employee_id]: payload.new }));
         })
       .subscribe();
-
     const sessCh = supabase.channel("sess-live")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "drill_sessions", filter: `id=eq.${session.id}` },
         payload => {
@@ -170,16 +273,8 @@ export default function App() {
           }
         })
       .subscribe();
-
     return () => { supabase.removeChannel(attCh); supabase.removeChannel(sessCh); };
   }, [session]);
-
-  // ── Tick: keeps elapsed times live on setup page ─────────────────────────
-  useEffect(() => {
-    if (activeSessions.length === 0) return;
-    const t = setInterval(() => setTick(n => n + 1), 1000);
-    return () => clearInterval(t);
-  }, [activeSessions.length]);
 
   // ── Real-time: new sessions ───────────────────────────────────────────────
   useEffect(() => {
@@ -193,16 +288,6 @@ export default function App() {
         })
       .subscribe();
     return () => supabase.removeChannel(ch);
-  }, []);
-
-  // ── Load attendance ───────────────────────────────────────────────────────
-  const loadAttendance = useCallback(async (sessionId) => {
-    const { data } = await supabase.from("attendance").select("*").eq("session_id", sessionId);
-    if (data) {
-      const map = {};
-      data.forEach(r => { map[r.employee_id] = r; });
-      setAtt(map);
-    }
   }, []);
 
   // ── Start drill ───────────────────────────────────────────────────────────
@@ -292,12 +377,11 @@ export default function App() {
     setNewEmp({ name: "", dept: "", marshal_id: "", is_marshal: false });
   };
 
-  // ── Update employee (used for edit sheet) ─────────────────────────────────
+  // ── Update employee ───────────────────────────────────────────────────────
   const updateEmployee = async (id, updates) => {
     const { data } = await supabase.from("employees").update(updates).eq("id", id).select().single();
     if (data) {
       setEmployees(prev => prev.map(e => e.id === id ? data : e));
-      // Keep myMarshal in sync if it was edited
       if (myMarshal?.id === id) setMyMarshal(data);
       if (editEmp?.id === id) setEditEmp(data);
     }
@@ -310,7 +394,7 @@ export default function App() {
     if (myMarshal?.id === id) setMyMarshal(null);
   };
 
-  // ── Add temp person during drill ──────────────────────────────────────────
+  // ── Add temp person ───────────────────────────────────────────────────────
   const addTempPerson = async () => {
     if (!newPersonName.trim() || !myMarshal) return;
     const { data } = await supabase.from("employees").insert({
@@ -393,13 +477,13 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
 
   // ─── COMPUTED ─────────────────────────────────────────────────────────────
 
-  const drillEmps  = employees.filter(e => !e.is_temp || e.created_in_session === session?.id);
-  const myParty    = myMarshal ? drillEmps.filter(e => e.marshal_id === myMarshal.id) : [];
-  const allStats   = calcStats(drillEmps, att);
-  const myStats    = calcStats(myParty, att);
-  const allOK      = allStats.total > 0 && allStats.unaccounted === 0 && allStats.missing === 0;
-  const hasMiss    = allStats.missing > 0;
-  const drillEnded = session && !session.active;
+  const drillEmps    = employees.filter(e => !e.is_temp || e.created_in_session === session?.id);
+  const myParty      = myMarshal ? drillEmps.filter(e => e.marshal_id === myMarshal.id) : [];
+  const allStats     = calcStats(drillEmps, att);
+  const myStats      = calcStats(myParty, att);
+  const allOK        = allStats.total > 0 && allStats.unaccounted === 0 && allStats.missing === 0;
+  const hasMiss      = allStats.missing > 0;
+  const drillEnded   = session && !session.active;
   const pastSessions = sessions.filter(s => !s.active);
   const otherActive  = activeSessions.filter(s => s.id !== session?.id);
 
@@ -440,9 +524,9 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
   if (page === "employees") return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#0f172a,#1e293b)", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{CSS}</style>
+      <ConnBar status={connStatus} />
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px 40px" }}>
 
-        {/* Header */}
         <div style={{ padding: "16px 0 12px", display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={() => navigate("setup")} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#94a3b8", borderRadius: 8, padding: "6px 12px", fontSize: 13 }}>← Back</button>
           <div style={{ color: "white", fontWeight: 800, fontSize: 18 }}>👥 Staff</div>
@@ -451,11 +535,9 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           </div>
         </div>
 
-        {/* Search */}
         <input className="inp" placeholder="🔍 Search…" value={empSearch} onChange={e => setEmpSearch(e.target.value)}
           style={{ width: "100%", padding: "10px 14px", borderRadius: 9, border: "1.5px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)", color: "white", fontSize: 14, marginBottom: 12 }} />
 
-        {/* Employee list */}
         <div style={{ maxHeight: 420, overflowY: "auto", marginBottom: 16 }}>
           {employees
             .filter(e => !e.is_temp && (!empSearch || e.name.toLowerCase().includes(empSearch.toLowerCase()) || e.dept?.toLowerCase().includes(empSearch.toLowerCase())))
@@ -479,18 +561,17 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
                   </div>
                   <button onClick={() => setEditEmp(emp)}
                     style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", borderRadius: 7, padding: "5px 9px", fontSize: 12, flexShrink: 0 }}>Edit</button>
-                  <button onClick={() => {
-                    if (window.confirm(`Remove ${emp.name}?`)) removeEmployee(emp.id);
-                  }} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", borderRadius: 7, padding: "5px 9px", fontSize: 12, flexShrink: 0 }}>✕</button>
+                  <button onClick={() => { if (window.confirm(`Remove ${emp.name}?`)) removeEmployee(emp.id); }}
+                    style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", borderRadius: 7, padding: "5px 9px", fontSize: 12, flexShrink: 0 }}>✕</button>
                 </div>
               );
             })}
         </div>
 
-        {/* Add employee */}
         <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 14, padding: 16, border: "1px solid rgba(255,255,255,0.08)" }}>
           <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12 }}>Add Employee</div>
           <input className="inp" value={newEmp.name} onChange={e => setNewEmp(p => ({...p, name: e.target.value}))} placeholder="Full name"
+            onKeyDown={e => e.key === "Enter" && addEmployee()}
             style={{ width: "100%", padding: "10px 12px", border: "1.5px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", borderRadius: 8, fontSize: 14, color: "white", marginBottom: 8 }} />
           <select value={newEmp.dept} onChange={e => setNewEmp(p => ({...p, dept: e.target.value}))}
             style={{ width: "100%", padding: "10px 12px", border: "1.5px solid rgba(255,255,255,0.1)", background: "#1e293b", borderRadius: 8, fontSize: 14, color: newEmp.dept ? "white" : "#64748b", marginBottom: 8 }}>
@@ -502,7 +583,6 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
             <option value="">Assign to marshal (optional)…</option>
             {marshals.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
-          {/* is_marshal toggle */}
           <button onClick={() => setNewEmp(p => ({...p, is_marshal: !p.is_marshal}))}
             style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${newEmp.is_marshal ? "#f97316" : "rgba(255,255,255,0.1)"}`, background: newEmp.is_marshal ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.05)", borderRadius: 8, fontSize: 14, color: newEmp.is_marshal ? "#f97316" : "#64748b", fontWeight: 600, textAlign: "left", marginBottom: 12 }}>
             🧑‍🚒 {newEmp.is_marshal ? "Is a Fire Marshal ✓" : "Make a Fire Marshal?"}
@@ -511,15 +591,13 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
         </div>
       </div>
 
-      {/* Edit employee sheet */}
+      {/* Edit sheet */}
       {editEmp && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "flex-end", zIndex: 100 }} onClick={() => setEditEmp(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#1e293b", width: "100%", padding: "20px 20px 36px", borderRadius: "20px 20px 0 0", boxShadow: "0 -8px 32px rgba(0,0,0,0.4)" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#1e293b", width: "100%", maxWidth: 480, margin: "0 auto", padding: "20px 20px 36px", borderRadius: "20px 20px 0 0", boxShadow: "0 -8px 32px rgba(0,0,0,0.4)" }}>
             <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)", margin: "0 auto 16px" }} />
             <div style={{ fontWeight: 800, fontSize: 16, color: "white", marginBottom: 4 }}>✏️ Edit {editEmp.name}</div>
             <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>Changes save instantly</div>
-
-            {/* Marshal toggle */}
             <div style={{ marginBottom: 10 }}>
               <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Role</div>
               <button onClick={() => updateEmployee(editEmp.id, { is_marshal: !editEmp.is_marshal })}
@@ -527,8 +605,6 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
                 🧑‍🚒 {editEmp.is_marshal ? "Fire Marshal — tap to demote" : "Not a marshal — tap to promote"}
               </button>
             </div>
-
-            {/* Department */}
             <div style={{ marginBottom: 10 }}>
               <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Department</div>
               <select value={editEmp.dept || ""} onChange={e => updateEmployee(editEmp.id, { dept: e.target.value || null })}
@@ -537,8 +613,6 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
                 {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
-
-            {/* Assigned marshal */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Assigned Marshal</div>
               <select value={editEmp.marshal_id || ""} onChange={e => updateEmployee(editEmp.id, { marshal_id: e.target.value || null })}
@@ -547,7 +621,6 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
                 {marshals.filter(m => m.id !== editEmp.id).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </div>
-
             <button onClick={() => setEditEmp(null)}
               style={{ width: "100%", padding: 13, background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 10, fontSize: 15, color: "white", fontWeight: 600 }}>Done</button>
           </div>
@@ -561,6 +634,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
   if (page === "sessions") return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#0f172a,#1e293b)", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{CSS}</style>
+      <ConnBar status={connStatus} />
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px 40px" }}>
         <div style={{ padding: "16px 0 12px", display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={() => navigate("setup")} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#94a3b8", borderRadius: 8, padding: "6px 12px", fontSize: 13 }}>← Back</button>
@@ -610,6 +684,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
   if (page === "setup") return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#0f172a 0%,#1e293b 100%)", fontFamily: "'DM Sans', system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <style>{CSS}</style>
+      <ConnBar status={connStatus} />
       <div style={{ width: "100%", maxWidth: 480, padding: "28px 16px 40px" }}>
 
         <div style={{ textAlign: "center", marginBottom: 28 }}>
@@ -619,11 +694,10 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           <div style={{ color: "#475569", fontSize: 13, marginTop: 3 }}>Headcount &amp; Muster</div>
         </div>
 
-        {/* Marshal picker */}
         <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 14, padding: 16, marginBottom: 12, border: "1px solid rgba(255,255,255,0.08)" }}>
           <label style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", display: "block", marginBottom: 10 }}>I am…</label>
           {marshals.length === 0 && (
-            <div style={{ color: "#475569", fontSize: 13, padding: "10px 0" }}>No marshals set up yet. Add employees and mark them as marshals.</div>
+            <div style={{ color: "#475569", fontSize: 13, padding: "10px 0" }}>No marshals set up yet. Go to Staff and mark employees as marshals.</div>
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {marshals.map(m => {
@@ -648,7 +722,6 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           </div>
         </div>
 
-        {/* Active sessions */}
         {activeSessions.length > 0 && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8 }}>
@@ -698,9 +771,10 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
   return (
     <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{CSS}</style>
+      <ConnBar status={connStatus} />
 
       {/* TOP BAR */}
-      <div style={{ background: drillEnded ? "#1e293b" : hasMiss ? "#991b1b" : allOK ? "#166534" : "#0f172a", padding: "10px 14px", position: "sticky", top: 0, zIndex: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.25)" }}>
+      <div style={{ background: drillEnded ? "#1e293b" : hasMiss ? "#991b1b" : allOK ? "#166534" : "#0f172a", padding: "10px 14px", position: "sticky", top: connStatus !== "online" ? 32 : 0, zIndex: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.25)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: 18 }}>🚨</span>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -730,7 +804,6 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           </button>
         </div>
 
-        {/* Session switcher */}
         {showSwitcher && (
           <div className="slide-up" style={{ background: "#1e293b", borderRadius: 10, border: "1px solid rgba(251,191,36,0.3)", padding: 8, marginBottom: 8 }}>
             <div style={{ color: "#64748b", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", padding: "2px 6px 6px" }}>Switch to another session</div>
@@ -747,7 +820,6 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           </div>
         )}
 
-        {/* Status pills */}
         <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
           {Object.entries(STATUS_META).map(([s, m]) => {
             const n = (tab === "mine" ? myStats : allStats)[s];
@@ -816,47 +888,10 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
             {tab === "mine" && myParty.length === 0 ? "No employees assigned to your party yet." : "No employees found."}
           </div>
         )}
-        {tab === "all" ? (
-          <>
-            {marshals.map(marshal => {
-              const party = visEmps.filter(e => e.marshal_id === marshal.id);
-              if (party.length === 0) return null;
-              const s = calcStats(party, att);
-              return (
-                <div key={marshal.id}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 4px 5px" }}>
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: s.missing > 0 ? "#dc2626" : s.unaccounted > 0 ? "#d97706" : "#16a34a", flexShrink: 0 }} />
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>{marshal.name}</span>
-                    <span style={{ fontSize: 11, color: "#94a3b8" }}>{s.present}/{s.total}</span>
-                    {s.missing > 0 && <span style={{ background: "#fef2f2", color: "#dc2626", borderRadius: 5, padding: "1px 6px", fontSize: 11, fontWeight: 700 }}>⚠ {s.missing} missing</span>}
-                  </div>
-                  {party.map(emp => (
-                    <EmpRow key={emp.id} emp={emp} rec={att[emp.id]} onStatus={setStatus}
-                      onNote={(id, note) => { setNoteFor(id); setNoteText(note || ""); }} disabled={drillEnded} />
-                  ))}
-                </div>
-              );
-            })}
-            {(() => {
-              const unassigned = visEmps.filter(e => !e.marshal_id);
-              if (!unassigned.length) return null;
-              return (
-                <div>
-                  <div style={{ padding: "10px 4px 5px", fontSize: 12, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Unassigned</div>
-                  {unassigned.map(emp => (
-                    <EmpRow key={emp.id} emp={emp} rec={att[emp.id]} onStatus={setStatus}
-                      onNote={(id, note) => { setNoteFor(id); setNoteText(note || ""); }} disabled={drillEnded} />
-                  ))}
-                </div>
-              );
-            })()}
-          </>
-        ) : (
-          visEmps.map(emp => (
-            <EmpRow key={emp.id} emp={emp} rec={att[emp.id]} onStatus={setStatus}
-              onNote={(id, note) => { setNoteFor(id); setNoteText(note || ""); }} disabled={drillEnded} />
-          ))
-        )}
+        {visEmps.map(emp => (
+          <EmpRow key={emp.id} emp={emp} rec={att[emp.id]} onStatus={setStatus}
+            onNote={(id, note) => { setNoteFor(id); setNoteText(note || ""); }} disabled={drillEnded} />
+        ))}
       </div>
 
       {/* BOTTOM BAR */}
@@ -941,55 +976,6 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── EMPLOYEE ROW ─────────────────────────────────────────────────────────────
-
-function EmpRow({ emp, rec, onStatus, onNote, disabled }) {
-  const status = rec?.status || "unaccounted";
-  const sm = STATUS_META[status];
-  const hasNote = !!rec?.note;
-  return (
-    <div className="emp-row fade-in" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7, background: "white", borderRadius: 12, padding: "10px 12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: status === "missing" ? "2px solid #fca5a5" : "2px solid transparent" }}>
-      <div style={{ width: 44, height: 44, borderRadius: 10, background: sm.bg, color: sm.text, fontSize: 20, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 0 3px ${sm.ring}33` }}>
-        {sm.icon}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ fontWeight: 700, fontSize: 15, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp.name}</span>
-          {emp.is_marshal && <span style={{ background: "#fff7ed", color: "#c2410c", borderRadius: 4, padding: "1px 5px", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>🧑‍🚒</span>}
-        </div>
-        <div style={{ fontSize: 12, color: "#64748b", marginTop: 1, display: "flex", alignItems: "center", gap: 5 }}>
-          {emp.dept || "—"}
-          {emp.is_temp && <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 4, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>TEMP</span>}
-        </div>
-        {hasNote && (
-          <div style={{ fontSize: 11, color: "#78350f", background: "#fef3c7", borderRadius: 5, padding: "2px 7px", marginTop: 3, display: "inline-flex", gap: 3 }}>
-            <span>📝</span><span>{rec.note}</span>
-          </div>
-        )}
-        {rec?.marshal_name && (
-          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, fontFamily: "'DM Mono', monospace" }}>
-            {rec.marshal_name} · {rec.updated_at ? new Date(rec.updated_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : ""}
-          </div>
-        )}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-        <div style={{ display: "flex", gap: 4 }}>
-          <button onClick={() => !disabled && onStatus(emp.id, "present")}
-            style={{ width: 36, height: 36, borderRadius: 8, background: status === "present" ? "#16a34a" : "#f0fdf4", border: `2px solid ${status === "present" ? "#16a34a" : "#86efac"}`, color: status === "present" ? "white" : "#16a34a", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>✓</button>
-          <button onClick={() => !disabled && onStatus(emp.id, "missing")}
-            style={{ width: 36, height: 36, borderRadius: 8, background: status === "missing" ? "#dc2626" : "#fef2f2", border: `2px solid ${status === "missing" ? "#dc2626" : "#fca5a5"}`, color: status === "missing" ? "white" : "#dc2626", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>✗</button>
-          <button onClick={() => !disabled && onStatus(emp.id, "excused")}
-            style={{ width: 36, height: 36, borderRadius: 8, background: status === "excused" ? "#d97706" : "#fffbeb", border: `2px solid ${status === "excused" ? "#d97706" : "#fcd34d"}`, color: status === "excused" ? "white" : "#d97706", fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>∅</button>
-        </div>
-        <button onClick={() => onNote(emp.id, rec?.note)} disabled={disabled}
-          style={{ background: hasNote ? "#fef3c7" : "#f8fafc", border: `1px solid ${hasNote ? "#fcd34d" : "#e2e8f0"}`, borderRadius: 6, padding: "3px 8px", fontSize: 11, color: hasNote ? "#92400e" : "#94a3b8", fontWeight: 600, cursor: disabled ? "default" : "pointer" }}>
-          📝 {hasNote ? "Edit" : "Note"}
-        </button>
-      </div>
     </div>
   );
 }
