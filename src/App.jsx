@@ -496,16 +496,20 @@ export default function App() {
       `  ? Unaccounted  : ${allStats.unaccounted}`,
       "",
       "── FULL HEADCOUNT ───────────────────────",
+      `  ${"NAME".padEnd(26)} ${"DEPT".padEnd(16)} ${"OUTCOME".padEnd(14)} ${"TIME".padEnd(10)} NOTED BY / NOTE`,
+      `  ${"─".repeat(26)} ${"─".repeat(16)} ${"─".repeat(14)} ${"─".repeat(10)} ${"─".repeat(30)}`,
     ];
 
     printEmps.forEach(e => {
       const r  = att[e.id];
       const st = r?.status || "unaccounted";
-      const note = r?.note ? `  [${r.note}]` : "";
-      const by   = r?.marshal_name ? `  (${r.marshal_name})` : "";
-      const temp = e.is_temp ? "  [TEMP]" : "";
-      const ts   = r?.updated_at && st !== "unaccounted" ? `  @ ${fmtTime(r.updated_at)}` : "";
-      lines.push(`  ${STATUS_META[st].icon} ${e.name.padEnd(26)} ${(e.dept || "").padEnd(16)}${temp}${ts}${note}${by}`);
+      const outcome = `${STATUS_META[st].icon} ${STATUS_META[st].label}`;
+      const note = r?.note ? `[${r.note}]` : "";
+      const by   = r?.marshal_name ? `(${r.marshal_name})` : "";
+      const temp = e.is_temp ? "[TEMP]" : "";
+      const ts   = r?.updated_at && st !== "unaccounted" ? fmtTime(r.updated_at) : "";
+      const trail = [by, note, temp].filter(Boolean).join("  ");
+      lines.push(`  ${e.name.padEnd(26)} ${(e.dept || "—").padEnd(16)} ${outcome.padEnd(14)} ${ts.padEnd(10)} ${trail}`);
     });
 
     if (allStats.missing > 0) {
