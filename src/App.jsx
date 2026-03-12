@@ -472,9 +472,14 @@ export default function App() {
 
   // ── Print report ──────────────────────────────────────────────────────────
   const handlePrint = () => {
-    const printEmps = employees.filter(e => !e.is_temp || e.created_in_session === session?.id);
+    const printEmps = employees
+      .filter(e => !e.is_temp || e.created_in_session === session?.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
     const allStats = calcStats(printEmps, att);
     const now = new Date();
+
+    const col = (str, w) => (str || "").slice(0, w).padEnd(w);
+
     const lines = [
       "FIRE EVACUATION DRILL – HEADCOUNT REPORT",
       "==========================================",
@@ -493,43 +498,32 @@ export default function App() {
       `  ∅ Off-site     : ${allStats.excused}`,
       `  ? Unaccounted  : ${allStats.unaccounted}`,
       "",
+      "── FULL HEADCOUNT ───────────────────────────────────────────────────────────",
+      `  ${"NAME".padEnd(24)} ${"DEPT".padEnd(14)} ${"MR".padEnd(4)} ${"STATUS".padEnd(12)} TIME      NOTE`,
+      `  ${"─".repeat(24)} ${"─".repeat(14)} ${"─".repeat(4)} ${"─".repeat(12)} ${"─".repeat(8)}  ${"─".repeat(20)}`,
     ];
-    marshals.forEach(marshal => {
-      const party = printEmps.filter(e => e.marshal_id === marshal.id);
-      if (party.length === 0) return;
-      const s = calcStats(party, att);
-      lines.push(`── ${marshal.name.toUpperCase()} ${"─".repeat(Math.max(0, 44 - marshal.name.length))}`);
-      lines.push(`  Present: ${s.present}  Missing: ${s.missing}  Off-site: ${s.excused}  Unaccounted: ${s.unaccounted}`);
-      party.forEach(e => {
-        const r = att[e.id]; const st = r?.status || "unaccounted";
-        const note = r?.note ? `  [${r.note}]` : "";
-        const by   = r?.marshal_name ? `  (${r.marshal_name})` : "";
-        const temp = e.is_temp ? "  [TEMP]" : "";
-        const ts   = r?.updated_at && st !== "unaccounted" ? `  @ ${fmtTime(r.updated_at)}` : "";
-        lines.push(`  ${STATUS_META[st].icon} ${e.name.padEnd(22)} ${(e.dept || "").padEnd(16)}${temp}${ts}${note}${by}`);
-      });
-      lines.push("");
+
+    printEmps.forEach(e => {
+      const r   = att[e.id];
+      const st  = r?.status || "unaccounted";
+      const marshal = employees.find(m => m.id === e.marshal_id);
+      const mi  = marshal ? initials(marshal.name) : "—";
+      const ts  = r?.updated_at && st !== "unaccounted" ? new Date(r.updated_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+      const note = [r?.note, e.is_temp ? "[TEMP]" : ""].filter(Boolean).join(" ");
+      lines.push(`  ${col(e.name, 24)} ${col(e.dept, 14)} ${col(mi, 4)} ${col(STATUS_META[st].icon + " " + STATUS_META[st].label, 12)} ${ts.padEnd(8)}  ${note}`);
     });
-    const unassigned = printEmps.filter(e => !e.marshal_id);
-    if (unassigned.length > 0) {
-      lines.push(`── UNASSIGNED ────────────────────────────────`);
-      unassigned.forEach(e => {
-        const r = att[e.id]; const st = r?.status || "unaccounted";
-        const ts = r?.updated_at && st !== "unaccounted" ? `  @ ${fmtTime(r.updated_at)}` : "";
-        lines.push(`  ${STATUS_META[st].icon} ${e.name.padEnd(22)} ${e.dept || ""}${e.is_temp ? "  [TEMP]" : ""}${ts}`);
-      });
-      lines.push("");
-    }
+
     if (allStats.missing > 0) {
-      lines.push("⚠  MISSING PERSONS – ACTION REQUIRED ─────────");
+      lines.push("");
+      lines.push("⚠  MISSING PERSONS – ACTION REQUIRED ──────────────────────────────────────");
       printEmps.filter(e => att[e.id]?.status === "missing").forEach(e => {
         const marshal = employees.find(m => m.id === e.marshal_id);
         const r = att[e.id];
-        const n = r?.note;
-        const ts = r?.updated_at ? `  |  Marked @ ${fmtTime(r.updated_at)}` : "";
-        lines.push(`  ✗ ${e.name}  |  ${e.dept || "—"}  |  Marshal: ${marshal?.name || "Unassigned"}${ts}${n ? `  |  Note: ${n}` : ""}`);
+        const ts = r?.updated_at ? `Marked @ ${fmtTime(r.updated_at)}` : "";
+        lines.push(`  ✗ ${e.name}  |  ${e.dept || "—"}  |  Marshal: ${marshal?.name || "Unassigned"}  |  ${ts}${r?.note ? `  |  Note: ${r.note}` : ""}`);
       });
     }
+
     const html = `<html><head><title>Fire Drill Report</title>
 <style>@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap');
 body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-height:1.6;white-space:pre;color:#1e293b}
