@@ -917,7 +917,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
       </div>
 
       {/* EMPLOYEE LIST */}
-      <div style={{ padding: "8px 10px 110px", position: "relative", filter: blocked ? "grayscale(1) opacity(0.4)" : "none", pointerEvents: blocked ? "none" : "auto", transition: "filter .3s" }}>
+      <div style={{ padding: "8px 10px 110px", position: "relative", opacity: offline ? 0.75 : 1, transition: "opacity .3s" }}>
         {visEmps.length === 0 && (
           <div style={{ textAlign: "center", color: "#94a3b8", padding: "40px 20px", fontSize: 14 }}>
             {tab === "mine" && myParty.length === 0 ? "No employees assigned to your party yet." : "No employees found."}
