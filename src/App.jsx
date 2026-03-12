@@ -700,7 +700,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#0f172a 0%,#1e293b 100%)", fontFamily: "'DM Sans', system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <style>{CSS}</style>
       <ConnBar status={connStatus} />
-      <div style={{ width: "100%", maxWidth: 480, padding: "28px 16px 40px" }}>
+      <div style={{ width: "100%", maxWidth: 480, padding: "28px 16px 40px", filter: blocked ? "grayscale(1) opacity(0.4)" : "none", pointerEvents: blocked ? "none" : "auto", transition: "filter .3s" }}>
 
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 48, marginBottom: 6 }}>🚨</div>
@@ -778,6 +778,23 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           </button>
         </div>
       </div>
+      {blocked && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.82)", zIndex: 50, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+          {connStatus === "offline" ? (
+            <>
+              <div style={{ fontSize: 80 }}>🚫</div>
+              <div style={{ color: "white", fontWeight: 800, fontSize: 22 }}>No Connection</div>
+              <div style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", maxWidth: 260 }}>Changes won't sync until you're back online.</div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 80 }}>🔄</div>
+              <div style={{ color: "white", fontWeight: 800, fontSize: 22 }}>Reconnecting…</div>
+              <div style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", maxWidth: 260 }}>Syncing latest data, please wait.</div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -789,7 +806,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
       <ConnBar status={connStatus} />
 
       {/* TOP BAR */}
-      <div style={{ background: drillEnded ? "#1e293b" : hasMiss ? "#991b1b" : allOK ? "#166534" : "#0f172a", padding: "10px 14px", position: "sticky", top: connStatus !== "online" ? 32 : 0, zIndex: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.25)" }}>
+      <div style={{ background: drillEnded ? "#1e293b" : hasMiss ? "#991b1b" : allOK ? "#166534" : "#0f172a", padding: "10px 14px", position: "sticky", top: connStatus !== "online" ? 32 : 0, zIndex: 60, boxShadow: "0 2px 8px rgba(0,0,0,0.25)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: 18 }}>🚨</span>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -897,10 +914,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
       </div>
 
       {/* EMPLOYEE LIST */}
-      <div style={{ padding: "8px 10px 110px", position: "relative" }}>
-        {blocked && (
-          <div style={{ position: "absolute", inset: 0, background: "rgba(241,245,249,0.6)", zIndex: 5, borderRadius: 4 }} />
-        )}
+      <div style={{ padding: "8px 10px 110px", position: "relative", filter: blocked ? "grayscale(1) opacity(0.4)" : "none", pointerEvents: blocked ? "none" : "auto", transition: "filter .3s" }}>
         {visEmps.length === 0 && (
           <div style={{ textAlign: "center", color: "#94a3b8", padding: "40px 20px", fontSize: 14 }}>
             {tab === "mine" && myParty.length === 0 ? "No employees assigned to your party yet." : "No employees found."}
@@ -913,7 +927,7 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
       </div>
 
       {/* BOTTOM BAR */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e2e8f0", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, zIndex: 10, opacity: blocked ? 0.5 : 1 }}>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: "1px solid #e2e8f0", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, zIndex: 10, filter: blocked ? "grayscale(1) opacity(0.4)" : "none", pointerEvents: blocked ? "none" : "auto", transition: "filter .3s" }}>
         <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: drillEnded ? "#64748b" : hasMiss ? "#dc2626" : allOK ? "#16a34a" : "#64748b" }}>
           {drillEnded ? "Drill Complete" : hasMiss ? `⚠ ${allStats.missing} MISSING` : allOK ? "✅ All Clear" : `${allStats.present}/${allStats.total} present`}
         </div>
@@ -932,6 +946,26 @@ body{font-family:'JetBrains Mono',monospace;padding:32px;font-size:13px;line-hei
           <button onClick={() => { if (!blocked) setConfirmStop(true); }} style={{ background: "#dc2626", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: blocked ? "default" : "pointer" }}>⏹ End Drill</button>
         )}
       </div>
+
+      {/* OFFLINE OVERLAY */}
+      {blocked && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.82)", zIndex: 50, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+          {connStatus === "offline" ? (
+            <>
+              <div style={{ fontSize: 80 }}>🚫</div>
+              <div style={{ color: "white", fontWeight: 800, fontSize: 22 }}>No Connection</div>
+              <div style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", maxWidth: 260 }}>Changes won't sync until you're back online.</div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 80 }}>🔄</div>
+              <div style={{ color: "white", fontWeight: 800, fontSize: 22 }}>Reconnecting…</div>
+              <div style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", maxWidth: 260 }}>Syncing latest data, please wait.</div>
+            </>
+          )}
+          <div style={{ position: "absolute", bottom: 24, fontSize: 12, color: "#475569" }}>Home button still available ↑</div>
+        </div>
+      )}
 
       {/* STOP DRILL CONFIRM */}
       {confirmStop && (
